@@ -9,7 +9,7 @@ function App() {
   useEffect(() => {
     const checkPi = setInterval(() => {
       if (window.Pi) {
-        window.Pi.setup({ appId: "YOUR_APP_ID_HERE" });
+        window.Pi.setup({ appId: "vsqhrvt2eejnisanjtkdgjk5wabjqktfj2cylwjaplinb8s6x4ieomeatsuhs6vv" });
         setPiAvailable(true);
         clearInterval(checkPi);
 
