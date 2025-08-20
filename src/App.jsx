@@ -14,11 +14,13 @@ function App() {
 
     let attempts = 0;
     const maxAttempts = 50; 
+
     const interval = setInterval(() => {
-      if (window.Pi) {
+      const Pi = window.Pi; 
+      if (Pi) {
         clearInterval(interval);
         try {
-          window.Pi.init({ version: "2.0", sandbox: true });
+          Pi.init({ version: "2.0", sandbox: true });
           setSdkState("ready");
           setMessage("");
         } catch (err) {
@@ -56,16 +58,20 @@ function App() {
     return response.json();
   };
 
+  // --- Core Functions ---
   const handleAuthenticate = async () => {
+    const Pi = window.Pi;
+    if (!Pi) return setMessage("Pi SDK not available. Please retry.");
+
     setIsLoading(true);
     setMessage("");
     try {
       const onIncompletePaymentFound = (payment) => {
         console.log("Incomplete payment found:", payment);
-        setMessage(`An incomplete payment was found: ${payment.identifier}. Please resolve it in the Pi app.`);
+        setMessage(`An incomplete payment was found: ${payment.identifier}. Please resolve it.`);
       };
 
-      const auth = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
+      const auth = await Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
       setAuthResult(auth);
 
     } catch (err) {
@@ -86,6 +92,9 @@ function App() {
   };
 
   const handlePayment = () => {
+    const Pi = window.Pi;
+    if (!Pi) return setMessage("Pi SDK not available. Please retry.");
+    
     setIsLoading(true);
     setMessage("Preparing transaction...");
 
@@ -129,7 +138,7 @@ function App() {
     };
 
     try {
-      window.Pi.createPayment(paymentData, callbacks);
+      Pi.createPayment(paymentData, callbacks);
     } catch (err) {
       setMessage("Could not initiate the payment process.");
       setIsLoading(false);
