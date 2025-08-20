@@ -1,7 +1,10 @@
-
 const fetch = require('node-fetch');
 
-const PI_API_KEY = "vsqhrvt2eejnisanjtkdgjk5wabjqktfj2cylwjaplinb8s6x4ieomeatsuhs6vv"; 
+// --- Pi API Configuration ---
+// IMPORTANT: You MUST set this as an Environment Variable in your Vercel project settings.
+// Name the variable: PI_API_KEY
+// Value: Your secret API Key from the Pi Developer Portal
+const PI_API_KEY = process.env.PI_API_KEY;
 const PI_API_URL = "https://api.minepi.com/v2";
 
 const reputationStore = {
@@ -10,17 +13,28 @@ const reputationStore = {
   'scufitarosie': 99,
 };
 
-export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin",);
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+const allowCors = fn => async (req, res) => {
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  return await fn(req, res);
+};
 
-  if (req.method === "OPTIONS") {
-    return res.status(204).end();
+async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
+  if (!PI_API_KEY) {
+      return res.status(500).json({ error: "Server configuration error: PI_API_KEY is not set." });
   }
   
   const { action, paymentId, txid, targetUsername } = req.body;
@@ -38,40 +52,30 @@ export default async function handler(req, res) {
 
   try {
     if (action === 'approve') {
-      console.log(`Approving payment: ${paymentId}`);
       const piResponse = await callPiApi(`/payments/${paymentId}/approve`, {});
-      
-      if (!piResponse.ok) {
-        const errorData = await piResponse.json();
-        console.error("Pi API Error (Approve):", errorData);
-        return res.status(piResponse.status).json({ error: 'Pi API approval failed', details: errorData });
-      }
-      
-      const approvalData = await piResponse.json();
-      return res.status(200).json(approvalData);
-    } 
-    else if (action === 'complete') {
-      console.log(`Completing payment: ${paymentId} with TXID: ${txid}`);
-      const piResponse = await callPiApi(`/payments/${paymentId}/complete`, { txid });
+      const responseData = await piResponse.json();
+      if (!piResponse.ok) throw new Error(responseData.message || 'Pi API approval failed');
+      return res.status(200).json(responseData);
 
-      if (!piResponse.ok) {
-        const errorData = await piResponse.json();
-        console.error("Pi API Error (Complete):", errorData);
-        return res.status(piResponse.status).json({ error: 'Pi API completion failed', details: errorData });
-      }
+    } else if (action === 'complete') {
+      const piResponse = await callPiApi(`/payments/${paymentId}/complete`, { txid });
+      const responseData = await piResponse.json();
+      if (!piResponse.ok) throw new Error(responseData.message || 'Pi API completion failed');
 
       const score = reputationStore[targetUsername.toLowerCase()] || Math.floor(Math.random() * 30) + 60;
-            
+      
       return res.status(200).json({ 
         message: 'Payment completed successfully',
         reputationScore: score 
       });
-    } 
-    else {
+
+    } else {
       return res.status(400).json({ error: 'Invalid action specified' });
     }
   } catch (error) {
     console.error("Server Error:", error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return res.status(500).json({ error: 'Internal Server Error', detail: error.message });
   }
 }
+
+module.exports = allowCors(handler);
