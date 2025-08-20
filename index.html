@@ -42,7 +42,16 @@
             };
 
             try {
-                Pi.authenticate(scopes, onIncompletePaymentFound)
+                // Create a promise for the authentication call
+                const authPromise = Pi.authenticate(scopes, onIncompletePaymentFound);
+
+                // Create a timeout promise that rejects after 5 seconds
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Authentication timed out after 5 seconds.')), 5000);
+                });
+
+                // Race the two promises. Whichever finishes first wins.
+                Promise.race([authPromise, timeoutPromise])
                     .then(function(auth) {
                         statusDiv.textContent = `Authentication successful. Ready to create payment.`;
                         paymentButton.disabled = false; // Enable the payment button on success
@@ -51,6 +60,7 @@
                         statusDiv.textContent = `Error: Authentication failed. ${error.message || 'Unknown error'}`;
                         authButton.disabled = false; // Re-enable button on failure
                     });
+
             } catch (err) {
                 statusDiv.textContent = `CRITICAL ERROR during auth: ${err.message}`;
                 authButton.disabled = false;
