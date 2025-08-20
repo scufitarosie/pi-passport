@@ -1,3 +1,8 @@
+"dependencies": {
+  "react": "^18.2.0",
+  "react-dom": "^18.2.0",
+  "@pi-network/pi-sdk-react": "^1.0.0"
+}
 {
   "name": "pi-passport",
   "version": "1.0.0",
