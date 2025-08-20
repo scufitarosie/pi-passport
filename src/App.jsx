@@ -6,15 +6,13 @@ function App() {
   const [verifiedUsers, setVerifiedUsers] = useState([]);
   const [piAvailable, setPiAvailable] = useState(false);
 
-  // Robust Pi Browser detection & SDK setup
   useEffect(() => {
     const checkPi = setInterval(() => {
       if (window.Pi) {
-        window.Pi.setup({ appId: "YOUR_APP_ID_HERE" }); // replace with your Pi App ID
+        window.Pi.setup({ appId: "YOUR_APP_ID_HERE" });
         setPiAvailable(true);
         clearInterval(checkPi);
 
-        // Try to get user if already logged in
         window.Pi.getUser()
           .then((u) => {
             if (u) setUser(u);
@@ -29,7 +27,7 @@ function App() {
   const handleLogin = async () => {
     if (!piAvailable) return alert("Please open this app inside Pi Browser.");
     try {
-      await window.Pi.authenticate(["payments"]);
+      await window.Pi.authenticate([]);
       const u = await window.Pi.getUser();
       setUser(u);
     } catch (err) {
@@ -38,40 +36,11 @@ function App() {
     }
   };
 
-  const handleVerify = async () => {
+  const handleVerify = () => {
     if (!user) return alert("Please log in first!");
     if (!usernameToVerify.trim()) return alert("Enter a username to verify!");
-
-    const paymentData = {
-      amount: 0.01,
-      memo: `Verification payment for ${usernameToVerify}`,
-      metadata: { username: usernameToVerify },
-    };
-
-    const paymentCallbacks = {
-      onReadyForServerApproval: (paymentId) => {
-        console.log("Payment ready for server approval:", paymentId);
-      },
-      onReadyForServerCompletion: (paymentId, txid) => {
-        console.log("Payment ready for completion:", paymentId, txid);
-        setVerifiedUsers((prev) => [...prev, usernameToVerify]);
-        setUsernameToVerify("");
-      },
-      onCancel: (paymentId) => {
-        alert("Payment cancelled.");
-      },
-      onError: (error, payment) => {
-        console.error("Payment error:", error, payment);
-        alert("Payment failed.");
-      },
-    };
-
-    try {
-      await window.Pi.createPayment(paymentData, paymentCallbacks);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to initiate payment.");
-    }
+    setVerifiedUsers((prev) => [...prev, usernameToVerify]);
+    setUsernameToVerify("");
   };
 
   return (
@@ -104,7 +73,7 @@ function App() {
             style={{ padding: "0.5rem", width: "60%", marginRight: "0.5rem" }}
           />
           <button onClick={handleVerify} style={{ padding: "0.5rem 1rem" }}>
-            Verify Identity (0.01 Pi)
+            Verify Identity
           </button>
 
           {verifiedUsers.length > 0 && (
