@@ -1,70 +1,82 @@
+import { Redis } from '@upstash/redis'
+
 const PI_API_KEY = process.env.PI_API_KEY;
 const PI_API_URL = "https://api.minepi.com/v2";
 
-const reputationStore = {
-  'pi-user-1': 95,
-  'pi-user-2': 78,
-  'scufitarosie': 99,
-};
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 export default async function handler(req, res) {
+  // Set CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: "Method Not Allowed" });
+  if (req.method === 'GET') {
+    const { username } = req.query;
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required.' });
+    }
+    try {
+      let score = await redis.get(username.toLowerCase());
+      if (score === null) {
+        score = 85;
+      }
+      return res.status(200).json({ username, score });
+    } catch (error) {
+      console.error("Redis GET error:", error);
+      return res.status(500).json({ error: 'Failed to fetch reputation.' });
+    }
   }
 
-  if (!PI_API_KEY) {
-    return res.status(500).json({ error: "Server configuration error: API key is missing." });
-  }
-
-  const { action, paymentId, txid, targetUsername } = req.body;
-
-  const callPiApi = async (endpoint, body) => {
-    const resp = await fetch(`${PI_API_URL}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Key ${PI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body || {}),
-    });
-    return resp;
-  };
-
-  try {
-    if (action === 'approve') {
-      if (!paymentId) return res.status(400).json({ error: "Payment ID is required for approval." });
-
-      const piResponse = await callPiApi(`/payments/${paymentId}/approve`);
-      if (!piResponse.ok) {
-        return res.status(piResponse.status).json({ error: "Pi API approve failed." });
-      }
-      return res.status(200).json({ success: true, action: 'approve' });
-
-    } else if (action === 'complete') {
-      if (!paymentId || !txid) return res.status(400).json({ error: "Payment ID and TXID are required." });
-
-      const piResponse = await callPiApi(`/payments/${paymentId}/complete`, { txid });
-      if (!piResponse.ok) {
-        return res.status(piResponse.status).json({ error: "Pi API complete failed." });
-      }
-
-      const score = reputationStore[targetUsername?.toLowerCase()] || Math.floor(Math.random() * 30) + 60;
-      return res.status(200).json({ success: true, action: 'complete', reputationScore: score });
-
-    } else {
-      return res.status(400).json({ error: 'Invalid action specified.' });
+  if (req.method === 'POST') {
+    if (!PI_API_KEY) {
+      return res.status(500).json({ error: "Server configuration error: PI_API_KEY is not set." });
     }
 
-  } catch (error) {
-    console.error("[ERROR] Internal Server Error:", error);
-    return res.status(500).json({ error: 'Unexpected server error.', detail: error.message });
+    const { action, paymentId, txid, metadata } = req.body;
+
+    const callPiApi = (endpoint, body) => {
+      return fetch(`${PI_API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Key ${PI_API_KEY}` },
+        body: JSON.stringify(body),
+      });
+    };
+
+    try {
+      if (action === 'approve') {
+        const piResponse = await callPiApi(`/payments/${paymentId}/approve`, {});
+        const responseData = await piResponse.json();
+        if (!piResponse.ok) throw new Error(responseData.message || 'Pi API approval failed');
+        return res.status(200).json(responseData);
+
+      } else if (action === 'complete') {
+        const piResponse = await callPiApi(`/payments/${paymentId}/complete`, { txid });
+        const responseData = await piResponse.json();
+        if (!piResponse.ok) throw new Error(responseData.message || 'Pi API completion failed');
+
+        const { userToRate, rating } = metadata;
+        if (userToRate && rating) {
+          const increment = rating === 'good' ? 1 : -1;
+          await redis.incrby(userToRate.toLowerCase(), increment);
+        }
+        return res.status(200).json({ message: 'Payment completed successfully' });
+
+      } else {
+        return res.status(400).json({ error: 'Invalid action specified.' });
+      }
+    } catch (error) {
+      console.error("Server Error:", error);
+      return res.status(500).json({ error: 'Internal Server Error', detail: error.message });
+    }
   }
+
+  return res.status(405).json({ error: "Method Not Allowed" });
 }
