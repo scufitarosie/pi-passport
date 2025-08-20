@@ -60,7 +60,7 @@ function App() {
     try {
       const result = await callBackend('GET', `/api/verify-passport?username=${username}`);
       setSearchedUser(username);
-      setReputationScore(result.score);
+      setReputationScore(result.score); // This will be null if the user is new
       setView('rating');
       setMessage("");
     } catch (err) {
@@ -155,12 +155,24 @@ function App() {
     }
 
     if (view === 'rating') {
+      // Logic for displaying the score or the new user message
+      const hasRating = reputationScore !== null;
+      const scoreDisplay = hasRating ? reputationScore : "N/A";
+      const scoreColor = hasRating && reputationScore < 80 ? '#dc3545' : '#28a745';
+
       return (
         <div>
-          <p>Reputation Score for <strong>{searchedUser}</strong>:</p>
-          <div style={{ fontSize: '4rem', fontWeight: 'bold', margin: '1rem 0', color: reputationScore >= 80 ? '#28a745' : '#dc3545' }}>
-            {reputationScore}
-          </div>
+          <p>Reputation for <strong>{searchedUser}</strong>:</p>
+          {hasRating ? (
+            <div style={{ fontSize: '4rem', fontWeight: 'bold', margin: '1rem 0', color: scoreColor }}>
+              {scoreDisplay}
+            </div>
+          ) : (
+            <div style={{ margin: '1rem 0', padding: '1rem', backgroundColor: '#e2e3e5', borderRadius: '8px' }}>
+              <p style={{ margin: 0, fontWeight: 500 }}>This user doesn't have a rating yet. Want to give them one?</p>
+            </div>
+          )}
+
           <div style={{ marginTop: '2rem', borderTop: '1px solid #eee', paddingTop: '2rem' }}>
             <p>Pay 0.01 Pi to rate this transaction:</p>
             <button onClick={() => handleRatingPayment('good')} disabled={isLoading} style={{ backgroundColor: '#28a745', color: 'white', marginRight: '1rem' }}>
