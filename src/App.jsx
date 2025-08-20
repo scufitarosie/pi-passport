@@ -7,12 +7,18 @@ function App() {
   const [piAvailable, setPiAvailable] = useState(false);
 
   useEffect(() => {
+    // Check if Pi SDK is loaded
     const checkPi = setInterval(() => {
       if (window.Pi) {
-        window.Pi.setup({ appId: "vsqhrvt2eejnisanjtkdgjk5wabjqktfj2cylwjaplinb8s6x4ieomeatsuhs6vv" });
+        // Initialize Pi SDK with verified App ID
+        window.Pi.setup({
+          appId: "vsqhrvt2eejnisanjtkdgjk5wabjqktfj2cylwjaplinb8s6x4ieomeatsuhs6vv", // keep the verified App ID
+          permissions: [] // no extra permissions needed for login/verification
+        });
         setPiAvailable(true);
         clearInterval(checkPi);
 
+        // Get user if already logged in
         window.Pi.getUser()
           .then((u) => {
             if (u) setUser(u);
@@ -39,6 +45,7 @@ function App() {
   const handleVerify = () => {
     if (!user) return alert("Please log in first!");
     if (!usernameToVerify.trim()) return alert("Enter a username to verify!");
+
     setVerifiedUsers((prev) => [...prev, usernameToVerify]);
     setUsernameToVerify("");
   };
