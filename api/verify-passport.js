@@ -5,7 +5,7 @@ const fetch = require('node-fetch');
 // --- Pi API Configuration ---
 // IMPORTANT: In a real production app, store your API Key in Vercel Environment Variables.
 // For the hackathon, it's okay here, but never commit real secrets to GitHub.
-const PI_API_KEY = "YOUR_PI_API_KEY"; // Replace with your actual API Key from the dev portal
+const PI_API_KEY = "vsqhrvt2eejnisanjtkdgjk5wabjqktfj2cylwjaplinb8s6x4ieomeatsuhs6vv"; // Replace with your actual API Key from the dev portal
 const PI_API_URL = "https://api.minepi.com/v2";
 
 // --- Simulated Database ---
