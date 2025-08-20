@@ -6,21 +6,24 @@ function App() {
   const [verifiedUsers, setVerifiedUsers] = useState([]);
   const [piAvailable, setPiAvailable] = useState(false);
 
-  // Check if Pi Browser is available
   useEffect(() => {
-    if (window.Pi) {
-      setPiAvailable(true);
-      window.Pi.setup({ appId: "YOUR_APP_ID_HERE" }); // Replace with your App ID
-      window.Pi.getUser()
-        .then((u) => {
-          if (u) setUser(u);
-        })
-        .catch(() => {});
-    }
+    // Wait for Pi SDK to load
+    const checkPi = () => {
+      if (window.Pi) {
+        setPiAvailable(true);
+        window.Pi.setup({ appId: "YOUR_APP_ID_HERE" }); // <-- replace with your Pi App ID
+        window.Pi.getUser()
+          .then((u) => { if(u) setUser(u); })
+          .catch(()=>{});
+      } else {
+        setTimeout(checkPi, 100); // retry every 100ms until loaded
+      }
+    };
+    checkPi();
   }, []);
 
   const handleLogin = async () => {
-    if (!piAvailable) return alert("Please open this in Pi Browser.");
+    if (!piAvailable) return alert("Please open in Pi Browser.");
     try {
       const u = await window.Pi.login();
       setUser(u);
