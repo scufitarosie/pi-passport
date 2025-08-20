@@ -1,14 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pi Passport</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pi SDK Transaction Test</title>
+    <style>
+        body { font-family: sans-serif; padding: 2rem; text-align: center; }
+        button { font-size: 1.2rem; padding: 0.5rem 1rem; cursor: pointer; margin-top: 10px; }
+        #status { margin-top: 1rem; padding: 1rem; background-color: #eee; border-radius: 5px; }
+    </style>
+    <!-- 1. Load the Pi SDK script from the official URL -->
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <!-- 2. Initialize the SDK -->
     <script>Pi.init({ version: "2.0", sandbox: true })</script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+</head>
+<body>
+    <h1>Pi SDK Transaction Test</h1>
+    <p>This page is designed to trigger a payment to pass the developer verification step.</p>
+    
+    <button id="paymentButton">Create Test Payment</button>
+    <hr style="margin: 2rem 0;">
+    <button id="authButton" disabled>Authenticate with Pi (Disabled)</button>
+    
+    <div id="status">Status: Waiting for action...</div>
+
+    <script>
+        const paymentButton = document.getElementById('paymentButton');
+        const statusDiv = document.getElementById('status');
+
+        paymentButton.onclick = function() {
+            statusDiv.textContent = 'Calling Pi.createPayment()...';
+            
+            const paymentData = {
+                amount: 0.01,
+                memo: 'Verification Transaction',
+                metadata: { verification: true },
+            };
+
+            const callbacks = {
+                onReadyForServerApproval: function(paymentId) {
+                    statusDiv.textContent = `Payment ready for server approval. Payment ID: ${paymentId}. You now need to approve this on your server.`;
+                    // In a real app, you would send this paymentId to your backend to be approved.
+                    // For the checklist, just seeing the payment dialog is often enough.
+                },
+                onReadyForServerCompletion: function(paymentId, txid) {
+                    statusDiv.textContent = `Payment ready for server completion. TXID: ${txid}`;
+                },
+                onCancel: function(paymentId) {
+                    statusDiv.textContent = `Payment was cancelled. Payment ID: ${paymentId}`;
+                },
+                onError: function(error, payment) {
+                    statusDiv.textContent = `Error during payment: ${error.code || error.message}`;
+                    console.error(error);
+                }
+            };
+
+            try {
+                Pi.createPayment(paymentData, callbacks);
+            } catch (err) {
+                statusDiv.textContent = `CRITICAL ERROR: ${err.message}`;
+                console.error(err);
+            }
+        };
+    </script>
+</body>
 </html>
