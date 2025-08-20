@@ -7,16 +7,15 @@ function App() {
   const [piAvailable, setPiAvailable] = useState(false);
 
   useEffect(() => {
-    // Wait for Pi SDK to load
     const checkPi = () => {
       if (window.Pi) {
         setPiAvailable(true);
         window.Pi.setup({ appId: "YOUR_APP_ID_HERE" }); // <-- replace with your Pi App ID
         window.Pi.getUser()
           .then((u) => { if(u) setUser(u); })
-          .catch(()=>{});
+          .catch(() => {});
       } else {
-        setTimeout(checkPi, 100); // retry every 100ms until loaded
+        setTimeout(checkPi, 100);
       }
     };
     checkPi();
@@ -25,7 +24,8 @@ function App() {
   const handleLogin = async () => {
     if (!piAvailable) return alert("Please open in Pi Browser.");
     try {
-      const u = await window.Pi.login();
+      await window.Pi.authenticate(["payments"]);
+      const u = await window.Pi.getUser();
       setUser(u);
     } catch (err) {
       console.error(err);
@@ -37,23 +37,35 @@ function App() {
     if (!user) return alert("Please log in first!");
     if (!usernameToVerify.trim()) return alert("Enter a username to verify!");
 
-    try {
-      const tx = await window.Pi.requestPayment({
-        amount: "0.01",
-        currency: "Pi",
-        memo: `Verification for ${usernameToVerify}`,
-      });
+    const paymentData = {
+      amount: 0.01,
+      memo: `Verification payment for ${usernameToVerify}`,
+      metadata: { username: usernameToVerify },
+    };
 
-      if (tx?.status === "success") {
-        alert(`${usernameToVerify} verified! Payment successful.`);
+    const paymentCallbacks = {
+      onReadyForServerApproval: (paymentId) => {
+        console.log("Payment ready for server approval:", paymentId);
+      },
+      onReadyForServerCompletion: (paymentId, txid) => {
+        console.log("Payment ready for completion:", paymentId, txid);
         setVerifiedUsers((prev) => [...prev, usernameToVerify]);
         setUsernameToVerify("");
-      } else {
-        alert("Payment failed or cancelled.");
-      }
+      },
+      onCancel: (paymentId) => {
+        alert("Payment cancelled.");
+      },
+      onError: (error, payment) => {
+        console.error("Payment error:", error, payment);
+        alert("Payment failed.");
+      },
+    };
+
+    try {
+      await window.Pi.createPayment(paymentData, paymentCallbacks);
     } catch (err) {
       console.error(err);
-      alert("Error processing payment.");
+      alert("Failed to initiate payment.");
     }
   };
 
