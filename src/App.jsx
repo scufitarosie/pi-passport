@@ -10,7 +10,7 @@ function App() {
     const checkPi = () => {
       if (window.Pi) {
         setPiAvailable(true);
-        window.Pi.setup({ appId: "YOUR_APP_ID_HERE" }); // <-- replace with your Pi App ID
+        window.Pi.setup({ appId: "vsqhrvt2eejnisanjtkdgjk5wabjqktfj2cylwjaplinb8s6x4ieomeatsuhs6vv" }); 
         window.Pi.getUser()
           .then((u) => { if(u) setUser(u); })
           .catch(() => {});
