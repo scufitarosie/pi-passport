@@ -1,86 +1,93 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { usePi } from "@pi-network/pi-sdk-react";
 
-const Pi = window.Pi;
+function App() {
+  const { user, login, transactionRequest } = usePi();
+  const [usernameToVerify, setUsernameToVerify] = useState("");
+  const [verifiedUsers, setVerifiedUsers] = useState([]);
 
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [accessToken, setAccessToken] = useState(null);
-  const [passport, setPassport] = useState(null);
-  const [verifyResult, setVerifyResult] = useState(null);
-
-  // Authenticate with Pi
-  const login = async () => {
+  // Handle login
+  const handleLogin = async () => {
     try {
-      const scopes = ["username"];
-      const onIncompletePaymentFound = (payment) => {};
-      const { user, accessToken } = await Pi.authenticate(
-        scopes,
-        onIncompletePaymentFound
-      );
-      setUser(user);
-      setAccessToken(accessToken);
+      await login();
     } catch (err) {
-      console.error("Login error:", err);
+      console.error("Login failed:", err);
+      alert("Login failed. Please try again.");
     }
   };
 
-  // Generate passport object
-  const generatePassport = () => {
-    if (!user || !accessToken) return;
-    const payload = {
-      uid: user.uid,
-      username: user.username,
-      timestamp: Date.now(),
-    };
-    setPassport(payload);
-  };
+  // Handle verification + payment
+  const handleVerify = async () => {
+    if (!user) {
+      alert("Please log in with Pi first!");
+      return;
+    }
 
-  // Verify passport with backend
-  const verifyPassport = async () => {
-    if (!passport || !accessToken) return;
+    if (!usernameToVerify.trim()) {
+      alert("Enter a username to verify!");
+      return;
+    }
+
     try {
-      const res = await fetch("/api/verify-passport", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accessToken,
-          claimedUid: passport.uid,
-        }),
+      // Request 0.01 Pi payment
+      const tx = await transactionRequest({
+        amount: "0.01",
+        currency: "PI",
+        memo: `Verification for ${usernameToVerify}`,
       });
-      const data = await res.json();
-      setVerifyResult(data);
+
+      if (tx?.status === "success") {
+        alert(`Payment successful! ${usernameToVerify} verified.`);
+
+        // Add user to verified list
+        setVerifiedUsers((prev) => [...prev, usernameToVerify]);
+        setUsernameToVerify(""); // Clear input
+      } else {
+        alert("Payment failed or cancelled.");
+      }
     } catch (err) {
-      console.error("Verify error:", err);
+      console.error(err);
+      alert("Error processing payment.");
     }
   };
 
   return (
-    <div style={{ padding: "1rem", fontFamily: "sans-serif" }}>
-      <h1>Pi Passport</h1>
+    <div style={{ maxWidth: 600, margin: "2rem auto", padding: "1rem", fontFamily: "sans-serif" }}>
+      <h1 style={{ textAlign: "center" }}>Pi Passport</h1>
+
       {!user ? (
-        <button onClick={login}>Login with Pi</button>
+        <button onClick={handleLogin} style={{ padding: "0.5rem 1rem", fontSize: "1rem" }}>
+          Login with Pi
+        </button>
       ) : (
         <div>
-          <p>Welcome, {user.username}</p>
-          <button onClick={generatePassport}>Generate Passport</button>
-        </div>
-      )}
+          <p>Logged in as: <strong>{user.username}</strong></p>
 
-      {passport && (
-        <div style={{ marginTop: "1rem" }}>
-          <h3>Passport JSON</h3>
-          <pre>{JSON.stringify(passport, null, 2)}</pre>
-          <button onClick={verifyPassport}>Verify with Server</button>
-        </div>
-      )}
+          <input
+            type="text"
+            placeholder="Enter username to verify"
+            value={usernameToVerify}
+            onChange={(e) => setUsernameToVerify(e.target.value)}
+            style={{ padding: "0.5rem", width: "60%", marginRight: "0.5rem" }}
+          />
+          <button onClick={handleVerify} style={{ padding: "0.5rem 1rem" }}>
+            Verify Identity (0.01 Pi)
+          </button>
 
-      {verifyResult && (
-        <div style={{ marginTop: "1rem" }}>
-          <h3>Verification Result</h3>
-          <pre>{JSON.stringify(verifyResult, null, 2)}</pre>
+          {verifiedUsers.length > 0 && (
+            <div style={{ marginTop: "1rem" }}>
+              <h3>Verified Users:</h3>
+              <ul>
+                {verifiedUsers.map((u, idx) => (
+                  <li key={idx}>{u}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
+export default App;
