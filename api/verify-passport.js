@@ -1,7 +1,7 @@
 
 const fetch = require('node-fetch');
 
-const PI_API_KEY = "vsqhrvt2eejnisanjtkdgjk5wabjqktfj2cylwjaplinb8s6x4ieomeatsuhs6vv"; // Replace with your actual API Key from the dev portal
+const PI_API_KEY = "vsqhrvt2eejnisanjtkdgjk5wabjqktfj2cylwjaplinb8s6x4ieomeatsuhs6vv"; 
 const PI_API_URL = "https://api.minepi.com/v2";
 
 const reputationStore = {
