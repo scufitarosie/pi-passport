@@ -14,7 +14,6 @@ function App() {
 
     let attempts = 0;
     const maxAttempts = 50; 
-
     const interval = setInterval(() => {
       if (window.Pi) {
         clearInterval(interval);
@@ -57,17 +56,22 @@ function App() {
     return response.json();
   };
 
-  const handleAuthenticate = () => {
+  const handleAuthenticate = async () => {
     setIsLoading(true);
     setMessage("");
     try {
-      window.Pi.authenticate(['username', 'payments'], (auth) => {
-        setAuthResult(auth);
-        setIsLoading(false);
-      });
+      const onIncompletePaymentFound = (payment) => {
+        console.log("Incomplete payment found:", payment);
+        setMessage(`An incomplete payment was found: ${payment.identifier}. Please resolve it in the Pi app.`);
+      };
+
+      const auth = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
+      setAuthResult(auth);
+
     } catch (err) {
-      console.error('An error occurred during authentication:', err);
-      setMessage("An error occurred. Please try again.");
+      console.error('Authentication error:', err);
+      setMessage("Authentication failed or was cancelled.");
+    } finally {
       setIsLoading(false);
     }
   };
