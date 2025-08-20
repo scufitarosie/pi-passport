@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { usePi } from "@pi-network/pi-sdk-react";
+// Use window.Pi in your code
+const { user, login, transactionRequest } = window.Pi;
 
 function App() {
   const { user, login, transactionRequest } = usePi();
