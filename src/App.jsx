@@ -6,7 +6,7 @@ function App() {
   const [message, setMessage] = useState("");
   const [targetUsername, setTargetUsername] = useState("");
   const [reputationScore, setReputationScore] = useState(null);
-  const [sdkState, setSdkState] = useState("loading"); 
+  const [sdkState, setSdkState] = useState("loading"); // 'loading', 'ready', 'failed'
 
   const initializePiSdk = useCallback(() => {
     setSdkState("loading");
@@ -14,7 +14,6 @@ function App() {
 
     let attempts = 0;
     const maxAttempts = 50; 
-
     const interval = setInterval(() => {
       const Pi = window.Pi; 
       if (Pi) {
@@ -58,28 +57,32 @@ function App() {
     return response.json();
   };
 
-  // --- Core Functions ---
-  const handleAuthenticate = async () => {
+  const handleAuthenticate = () => {
     const Pi = window.Pi;
-    if (!Pi) return setMessage("Pi SDK not available. Please retry.");
+    if (!Pi) {
+      setMessage("Pi SDK not available. Please retry.");
+      return;
+    }
 
     setIsLoading(true);
     setMessage("");
-    try {
-      const onIncompletePaymentFound = (payment) => {
-        console.log("Incomplete payment found:", payment);
-        setMessage(`An incomplete payment was found: ${payment.identifier}. Please resolve it.`);
-      };
 
-      const auth = await Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
-      setAuthResult(auth);
+    function onIncompletePaymentFound(payment) {
+      console.log("Incomplete payment found:", payment);
+      setMessage(`An incomplete payment was found: ${payment.identifier}. Please resolve it.`);
+      return; 
+    };
 
-    } catch (err) {
-      console.error('Authentication error:', err);
-      setMessage("Authentication failed or was cancelled.");
-    } finally {
-      setIsLoading(false);
-    }
+    Pi.authenticate(['username', 'payments'], onIncompletePaymentFound)
+      .then(auth => {
+        setAuthResult(auth);
+        setIsLoading(false);
+      })
+      .catch(error => {
+        console.error('Authentication error:', error);
+        setMessage("Authentication failed or was cancelled by the user.");
+        setIsLoading(false);
+      });
   };
 
   const checkReputation = () => {
