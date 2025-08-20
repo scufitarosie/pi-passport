@@ -4,11 +4,13 @@ function App() {
   const [user, setUser] = useState(null);
   const [usernameToVerify, setUsernameToVerify] = useState("");
   const [verifiedUsers, setVerifiedUsers] = useState([]);
+  const [piAvailable, setPiAvailable] = useState(false);
 
-  // Check if Pi is available and get user info
+  // Check if Pi Browser is available
   useEffect(() => {
     if (window.Pi) {
-      window.Pi.setup({ appId: "YOUR_APP_ID_HERE" }); // replace with your Pi App ID
+      setPiAvailable(true);
+      window.Pi.setup({ appId: "YOUR_APP_ID_HERE" }); // Replace with your App ID
       window.Pi.getUser()
         .then((u) => {
           if (u) setUser(u);
@@ -18,7 +20,7 @@ function App() {
   }, []);
 
   const handleLogin = async () => {
-    if (!window.Pi) return alert("Please open in Pi Browser.");
+    if (!piAvailable) return alert("Please open this in Pi Browser.");
     try {
       const u = await window.Pi.login();
       setUser(u);
@@ -33,7 +35,6 @@ function App() {
     if (!usernameToVerify.trim()) return alert("Enter a username to verify!");
 
     try {
-      // Request 0.01 Pi payment
       const tx = await window.Pi.requestPayment({
         amount: "0.01",
         currency: "Pi",
@@ -57,11 +58,21 @@ function App() {
     <div style={{ maxWidth: 600, margin: "2rem auto", padding: "1rem", fontFamily: "sans-serif" }}>
       <h1 style={{ textAlign: "center" }}>Pi Passport</h1>
 
-      {!user ? (
-        <button onClick={handleLogin} style={{ padding: "0.5rem 1rem", fontSize: "1rem" }}>
-          Login with Pi
-        </button>
-      ) : (
+      {!piAvailable && (
+        <p style={{ color: "red", textAlign: "center" }}>
+          This app only works in the Pi Browser.
+        </p>
+      )}
+
+      {piAvailable && !user && (
+        <div style={{ textAlign: "center" }}>
+          <button onClick={handleLogin} style={{ padding: "0.5rem 1rem", fontSize: "1rem" }}>
+            Login with Pi
+          </button>
+        </div>
+      )}
+
+      {piAvailable && user && (
         <div>
           <p>Logged in as: <strong>{user.username || user.id}</strong></p>
 
