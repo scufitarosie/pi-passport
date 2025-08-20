@@ -12,8 +12,8 @@ function App() {
       if (window.Pi) {
         // Initialize Pi SDK with verified App ID
         window.Pi.setup({
-          appId: "vsqhrvt2eejnisanjtkdgjk5wabjqktfj2cylwjaplinb8s6x4ieomeatsuhs6vv", // keep the verified App ID
-          permissions: [] // no extra permissions needed for login/verification
+          appId: "vsqhrvt2eejnisanjtkdgjk5wabjqktfj2cylwjaplinb8s6x4ieomeatsuhs6vv",
+          permissions: [] // no extra permissions needed
         });
         setPiAvailable(true);
         clearInterval(checkPi);
@@ -27,6 +27,7 @@ function App() {
       }
     }, 100);
 
+    // Cleanup interval on unmount
     return () => clearInterval(checkPi);
   }, []);
 
