@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-// --- Main App Component ---
 function App() {
-  // --- State Management ---
   const [authResult, setAuthResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("Initializing Pi SDK...");
@@ -10,7 +8,6 @@ function App() {
   const [reputationScore, setReputationScore] = useState(null);
   const [isPiSdkReady, setIsPiSdkReady] = useState(false); // State to track SDK readiness
 
-  // --- Pi SDK Initialization ---
   useEffect(() => {
     const script = document.createElement('script');
     script.src = "https://sdk.pi-network.net/v2/pi-sdk.js";
@@ -18,11 +15,9 @@ function App() {
     
     script.onload = () => {
       try {
-        // Initialize the SDK
         window.Pi.init({ version: "2.0", sandbox: true });
-        // Set the SDK as ready
         setIsPiSdkReady(true);
-        setMessage(""); // Clear the initializing message
+        setMessage("");
       } catch (err) {
         console.error("Pi SDK initialization failed", err);
         setMessage("Error: Could not initialize Pi SDK.");
@@ -35,17 +30,13 @@ function App() {
 
     document.body.appendChild(script);
 
-    // Cleanup script on component unmount
     return () => {
         document.body.removeChild(script);
     }
   }, []);
 
-  // --- Core Functions ---
 
-  // 1. Authentication
   const handleAuthenticate = () => {
-    // The button's disabled state now prevents this from being called too early
     setIsLoading(true);
     setMessage("");
     try {
@@ -65,17 +56,15 @@ function App() {
     }
   };
 
-  // 2. Reputation Check (initiates payment)
   const checkReputation = () => {
     if (!targetUsername.trim()) {
       setMessage("Please enter a username to check.");
       return;
     }
-    setReputationScore(null); // Reset previous score
+    setReputationScore(null); 
     handlePayment();
   };
 
-  // 3. Payment Handling
   const handlePayment = () => {
     if (!authResult) {
       setMessage("You must be authenticated to perform a transaction.");
@@ -94,13 +83,11 @@ function App() {
       onReadyForServerAuth: async (paymentId) => {
         setMessage("Transaction ready. Please wait for server approval...");
         try {
-          // Call our backend to approve the payment
           await fetch('/api/verify-passport', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'approve', paymentId }),
           });
-          // After server approval, the Pi SDK will show the user the confirmation dialog.
           setMessage("Server approved. Please confirm the transaction in the Pi dialog.");
         } catch (err) {
           console.error("Server approval failed:", err);
@@ -111,7 +98,6 @@ function App() {
       onReadyForServerCompletion: async (paymentId, txid) => {
         setMessage("Transaction confirmed! Finalizing with server...");
         try {
-          // Call our backend to complete the payment and get the reputation score
           const response = await fetch('/api/verify-passport', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -151,7 +137,6 @@ function App() {
     }
   };
   
-  // --- Render Logic ---
   return (
     <div style={{ maxWidth: 600, margin: "2rem auto", padding: "1rem", fontFamily: "sans-serif", backgroundColor: "#f4f4f9", borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
       <h1 style={{ textAlign: "center", color: '#333' }}>Pi Passport</h1>
