@@ -6,23 +6,28 @@ function App() {
   const [verifiedUsers, setVerifiedUsers] = useState([]);
   const [piAvailable, setPiAvailable] = useState(false);
 
+  // Robust Pi Browser detection & SDK setup
   useEffect(() => {
-    const checkPi = () => {
+    const checkPi = setInterval(() => {
       if (window.Pi) {
+        window.Pi.setup({ appId: "YOUR_APP_ID_HERE" }); // replace with your Pi App ID
         setPiAvailable(true);
-        window.Pi.setup({ appId: "vsqhrvt2eejnisanjtkdgjk5wabjqktfj2cylwjaplinb8s6x4ieomeatsuhs6vv" }); 
+        clearInterval(checkPi);
+
+        // Try to get user if already logged in
         window.Pi.getUser()
-          .then((u) => { if(u) setUser(u); })
+          .then((u) => {
+            if (u) setUser(u);
+          })
           .catch(() => {});
-      } else {
-        setTimeout(checkPi, 100);
       }
-    };
-    checkPi();
+    }, 100);
+
+    return () => clearInterval(checkPi);
   }, []);
 
   const handleLogin = async () => {
-    if (!piAvailable) return alert("Please open in Pi Browser.");
+    if (!piAvailable) return alert("Please open this app inside Pi Browser.");
     try {
       await window.Pi.authenticate(["payments"]);
       const u = await window.Pi.getUser();
@@ -75,7 +80,7 @@ function App() {
 
       {!piAvailable && (
         <p style={{ color: "red", textAlign: "center" }}>
-          This app only works in the Pi Browser.
+          This app only works inside Pi Browser. Make sure you opened the link there.
         </p>
       )}
 
