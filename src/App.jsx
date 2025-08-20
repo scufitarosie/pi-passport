@@ -1,52 +1,68 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 function App() {
   const [authResult, setAuthResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState("Initializing Pi SDK...");
+  const [message, setMessage] = useState("");
   const [targetUsername, setTargetUsername] = useState("");
   const [reputationScore, setReputationScore] = useState(null);
-  const [isPiSdkReady, setIsPiSdkReady] = useState(false); // State to track SDK readiness
+  const [sdkState, setSdkState] = useState("loading"); 
 
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = "https://sdk.pi-network.net/v2/pi-sdk.js";
-    script.async = true;
-    
-    script.onload = () => {
-      try {
-        window.Pi.init({ version: "2.0", sandbox: true });
-        setIsPiSdkReady(true);
-        setMessage("");
-      } catch (err) {
-        console.error("Pi SDK initialization failed", err);
-        setMessage("Error: Could not initialize Pi SDK.");
+  const initializePiSdk = useCallback(() => {
+    setSdkState("loading");
+    setMessage("Initializing Pi SDK...");
+
+    let attempts = 0;
+    const maxAttempts = 50; 
+
+    const interval = setInterval(() => {
+      if (window.Pi) {
+        clearInterval(interval);
+        try {
+          window.Pi.init({ version: "2.0", sandbox: true });
+          setSdkState("ready");
+          setMessage("");
+        } catch (err) {
+          console.error("Pi SDK initialization failed", err);
+          setMessage("Error: Could not initialize Pi SDK.");
+          setSdkState("failed");
+        }
+      } else {
+        attempts++;
+        if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          console.error("Pi SDK failed to load after 5 seconds.");
+          setMessage("Failed to load Pi SDK. Please ensure you are in the Pi Browser.");
+          setSdkState("failed");
+        }
       }
-    };
-    
-    script.onerror = () => {
-        setMessage("Failed to load the Pi SDK. Please check your connection and refresh.");
-    };
-
-    document.body.appendChild(script);
-
-    return () => {
-        document.body.removeChild(script);
-    }
+    }, 100);
   }, []);
 
+  useEffect(() => {
+    initializePiSdk();
+  }, [initializePiSdk]);
+
+  const callBackend = async (body) => {
+    const response = await fetch('/api/verify-passport', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorResult = await response.json();
+      throw new Error(errorResult.error || `Server responded with status ${response.status}`);
+    }
+    return response.json();
+  };
 
   const handleAuthenticate = () => {
     setIsLoading(true);
     setMessage("");
     try {
-      const scopes = ['username', 'payments'];
-      window.Pi.authenticate(scopes, (auth) => {
+      window.Pi.authenticate(['username', 'payments'], (auth) => {
         setAuthResult(auth);
-        setIsLoading(false);
-      }, (err) => {
-        console.error("Authentication failed:", err);
-        setMessage("Authentication was cancelled or failed.");
         setIsLoading(false);
       });
     } catch (err) {
@@ -61,15 +77,11 @@ function App() {
       setMessage("Please enter a username to check.");
       return;
     }
-    setReputationScore(null); 
+    setReputationScore(null);
     handlePayment();
   };
 
   const handlePayment = () => {
-    if (!authResult) {
-      setMessage("You must be authenticated to perform a transaction.");
-      return;
-    }
     setIsLoading(true);
     setMessage("Preparing transaction...");
 
@@ -81,49 +93,33 @@ function App() {
 
     const callbacks = {
       onReadyForServerAuth: async (paymentId) => {
-        setMessage("Transaction ready. Please wait for server approval...");
+        setMessage("Approving with server...");
         try {
-          await fetch('/api/verify-passport', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'approve', paymentId }),
-          });
-          setMessage("Server approved. Please confirm the transaction in the Pi dialog.");
+          await callBackend({ action: 'approve', paymentId });
+          setMessage("Server approved. Please confirm the transaction.");
         } catch (err) {
-          console.error("Server approval failed:", err);
-          setMessage("Error: Could not get server approval for the transaction.");
+          setMessage(`Error: ${err.message}`);
           setIsLoading(false);
         }
       },
       onReadyForServerCompletion: async (paymentId, txid) => {
-        setMessage("Transaction confirmed! Finalizing with server...");
+        setMessage("Finalizing transaction...");
         try {
-          const response = await fetch('/api/verify-passport', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'complete', paymentId, txid, targetUsername }),
-          });
-          const result = await response.json();
-          if (response.ok) {
-            setReputationScore(result.reputationScore);
-            setMessage("Reputation check successful!");
-          } else {
-            throw new Error(result.error || "Completion failed");
-          }
+          const result = await callBackend({ action: 'complete', paymentId, txid, targetUsername });
+          setReputationScore(result.reputationScore);
+          setMessage("Reputation check successful!");
         } catch (err) {
-          console.error("Server completion failed:", err);
           setMessage(`Error: ${err.message}`);
         } finally {
           setIsLoading(false);
         }
       },
-      onCancel: (paymentId) => {
+      onCancel: () => {
         setMessage("Transaction cancelled.");
         setIsLoading(false);
       },
-      onError: (error, payment) => {
-        console.error("Transaction error:", error);
-        setMessage(`An error occurred during the transaction: ${error.code}`);
+      onError: (error) => {
+        setMessage(`An error occurred: ${error.code || 'Please try again.'}`);
         setIsLoading(false);
       },
     };
@@ -131,7 +127,6 @@ function App() {
     try {
       window.Pi.createPayment(paymentData, callbacks);
     } catch (err) {
-      console.error('Error creating payment:', err);
       setMessage("Could not initiate the payment process.");
       setIsLoading(false);
     }
@@ -143,27 +138,31 @@ function App() {
       <p style={{ textAlign: "center", color: '#666' }}>Your On-Chain Reputation Checker</p>
       
       <div style={{ padding: '1rem', borderTop: '1px solid #ddd', marginTop: '1rem' }}>
-        {!authResult ? (
+        {sdkState !== 'ready' && (
+          <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#fff3cd', color: '#856404', borderRadius: '5px' }}>
+            <p style={{ margin: 0 }}>{message}</p>
+            {sdkState === 'failed' && (
+              <button onClick={initializePiSdk} style={{ marginTop: '1rem', padding: '0.5rem 1rem', cursor: 'pointer' }}>
+                Retry
+              </button>
+            )}
+          </div>
+        )}
+
+        {sdkState === 'ready' && !authResult && (
           <div style={{ textAlign: "center" }}>
             <p>Connect your Pi account to get started.</p>
             <button 
               onClick={handleAuthenticate} 
-              disabled={!isPiSdkReady || isLoading} 
-              style={{ 
-                padding: "0.75rem 1.5rem", 
-                fontSize: "1rem", 
-                cursor: (!isPiSdkReady || isLoading) ? 'not-allowed' : 'pointer', 
-                backgroundColor: (!isPiSdkReady || isLoading) ? '#cccccc' : '#007bff', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '5px',
-                transition: 'background-color 0.3s ease'
-              }}
+              disabled={isLoading} 
+              style={{ padding: "0.75rem 1.5rem", fontSize: "1rem", cursor: isLoading ? 'not-allowed' : 'pointer', backgroundColor: isLoading ? '#cccccc' : '#007bff', color: 'white', border: 'none', borderRadius: '5px' }}
             >
-              {isLoading ? "Loading..." : "Authenticate with Pi"}
+              Authenticate with Pi
             </button>
           </div>
-        ) : (
+        )}
+
+        {sdkState === 'ready' && authResult && (
           <div>
             <div style={{ padding: '0.5rem', backgroundColor: '#e9f5e9', borderRadius: '5px', textAlign: 'center', marginBottom: '1.5rem' }}>
               <p style={{ margin: 0, color: '#2e7d32' }}>Logged in as: <strong>{authResult.user.username}</strong></p>
@@ -181,17 +180,7 @@ function App() {
             <button 
               onClick={checkReputation} 
               disabled={isLoading} 
-              style={{ 
-                width: '100%', 
-                padding: "0.75rem 1.5rem", 
-                fontSize: "1rem", 
-                cursor: isLoading ? 'not-allowed' : 'pointer', 
-                backgroundColor: isLoading ? '#cccccc' : '#28a745', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '5px',
-                transition: 'background-color 0.3s ease'
-              }}
+              style={{ width: '100%', padding: "0.75rem 1.5rem", fontSize: "1rem", cursor: isLoading ? 'not-allowed' : 'pointer', backgroundColor: isLoading ? '#cccccc' : '#28a745', color: 'white', border: 'none', borderRadius: '5px' }}
             >
               {isLoading ? "Processing..." : "Check Reputation (0.01 Pi)"}
             </button>
@@ -199,8 +188,7 @@ function App() {
         )}
       </div>
 
-      {/* --- Status and Result Display --- */}
-      {message && (
+      {message && sdkState === 'ready' && (
         <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#fff3cd', color: '#856404', borderRadius: '5px', textAlign: 'center' }}>
           <p style={{ margin: 0 }}>{message}</p>
         </div>
