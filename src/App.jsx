@@ -1,18 +1,14 @@
 import React, { useState, useEffect, useCallback } from "react";
 
-// --- Main App Component ---
 function App() {
-  // --- State Management ---
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [sdkState, setSdkState] = useState("loading");
   
-  // App logic states
   const [view, setView] = useState('search'); // 'search' or 'rating'
   const [searchedUser, setSearchedUser] = useState('');
   const [reputationScore, setReputationScore] = useState(null);
 
-  // --- Pi SDK Detection ---
   useEffect(() => {
     let attempts = 0;
     const interval = setInterval(() => {
@@ -21,7 +17,7 @@ function App() {
         setSdkState("ready");
       } else {
         attempts++;
-        if (attempts > 50) { // 5 seconds
+        if (attempts > 50) { 
           clearInterval(interval);
           setSdkState("failed");
           setMessage("Failed to load Pi SDK. Please ensure you are in the Pi Browser.");
@@ -30,7 +26,6 @@ function App() {
     }, 100);
   }, []);
 
-  // --- API Call Helper ---
   const callBackend = async (method, path, body = null) => {
     const options = {
       method,
@@ -43,26 +38,20 @@ function App() {
     try {
       const response = await fetch(path, options);
       if (!response.ok) {
-        // Try to parse the error message from the server's JSON response
         try {
           const errorResult = await response.json();
           throw new Error(errorResult.error || `Server responded with status ${response.status}`);
         } catch (e) {
-          // If the response isn't JSON, use the status text
           throw new Error(`Server responded with status ${response.status}: ${response.statusText}`);
         }
       }
       return response.json();
     } catch (err) {
-      // This catches network errors (e.g., failed to fetch) and the errors thrown above
       console.error("API call failed:", err);
-      throw err; // Re-throw the error to be handled by the calling function
+      throw err; 
     }
   };
 
-  // --- Core Functions ---
-
-  // 1. Check Reputation (Free)
   const handleCheckReputation = async (username) => {
     if (!username) {
       setMessage("Please enter a username.");
@@ -73,7 +62,7 @@ function App() {
     try {
       const result = await callBackend('GET', `/api/verify-passport?username=${encodeURIComponent(username)}`);
       setSearchedUser(username);
-      setReputationScore(result.score); // This will be null if the user is new
+      setReputationScore(result.score); 
       setView('rating');
       setMessage("");
     } catch (err) {
@@ -83,7 +72,6 @@ function App() {
     }
   };
   
-  // 2. Handle Rating Payment
   const handleRatingPayment = (ratingType) => {
     setIsLoading(true);
     setMessage("Authenticating for payment...");
@@ -103,7 +91,6 @@ function App() {
       });
   };
 
-  // 3. Create the Pi Payment
   const createRatingPayment = (ratingType) => {
     const paymentData = {
       amount: 0.01,
@@ -127,7 +114,6 @@ function App() {
         try {
           await callBackend('POST', '/api/verify-passport', { action: 'complete', paymentId, txid, metadata: paymentData.metadata });
           setMessage("Rating submitted successfully!");
-          // Re-fetch the score to show the update
           handleCheckReputation(searchedUser); 
         } catch (err) {
           setMessage(`Error: ${err.message}`);
@@ -147,7 +133,6 @@ function App() {
     window.Pi.createPayment(paymentData, callbacks);
   };
 
-  // --- Render Logic ---
   const renderContent = () => {
     if (sdkState !== 'ready') {
       return <p>{message || "Initializing Pi SDK..."}</p>;
@@ -168,7 +153,6 @@ function App() {
     }
 
     if (view === 'rating') {
-      // Logic for displaying the score or the new user message
       const hasRating = reputationScore !== null;
       const scoreDisplay = hasRating ? reputationScore : "N/A";
       const scoreColor = hasRating && reputationScore < 80 ? '#dc3545' : '#28a745';
