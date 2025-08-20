@@ -1,48 +1,49 @@
-import React, { useState } from "react";
-// Use window.Pi in your code
-const { user, login, transactionRequest } = window.Pi;
+import React, { useState, useEffect } from "react";
 
 function App() {
-  const { user, login, transactionRequest } = usePi();
+  const [user, setUser] = useState(null);
   const [usernameToVerify, setUsernameToVerify] = useState("");
   const [verifiedUsers, setVerifiedUsers] = useState([]);
 
-  // Handle login
+  // Check if Pi is available and get user info
+  useEffect(() => {
+    if (window.Pi) {
+      window.Pi.setup({ appId: "YOUR_APP_ID_HERE" }); // replace with your Pi App ID
+      window.Pi.getUser()
+        .then((u) => {
+          if (u) setUser(u);
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   const handleLogin = async () => {
+    if (!window.Pi) return alert("Please open in Pi Browser.");
     try {
-      await login();
+      const u = await window.Pi.login();
+      setUser(u);
     } catch (err) {
-      console.error("Login failed:", err);
-      alert("Login failed. Please try again.");
+      console.error(err);
+      alert("Login failed.");
     }
   };
 
-  // Handle verification + payment
   const handleVerify = async () => {
-    if (!user) {
-      alert("Please log in with Pi first!");
-      return;
-    }
-
-    if (!usernameToVerify.trim()) {
-      alert("Enter a username to verify!");
-      return;
-    }
+    if (!user) return alert("Please log in first!");
+    if (!usernameToVerify.trim()) return alert("Enter a username to verify!");
 
     try {
       // Request 0.01 Pi payment
-      const tx = await transactionRequest({
+      const tx = await window.Pi.requestPayment({
         amount: "0.01",
-        currency: "PI",
+        currency: "Pi",
         memo: `Verification for ${usernameToVerify}`,
       });
 
       if (tx?.status === "success") {
-        alert(`Payment successful! ${usernameToVerify} verified.`);
-
-        // Add user to verified list
+        alert(`${usernameToVerify} verified! Payment successful.`);
         setVerifiedUsers((prev) => [...prev, usernameToVerify]);
-        setUsernameToVerify(""); // Clear input
+        setUsernameToVerify("");
       } else {
         alert("Payment failed or cancelled.");
       }
@@ -62,7 +63,7 @@ function App() {
         </button>
       ) : (
         <div>
-          <p>Logged in as: <strong>{user.username}</strong></p>
+          <p>Logged in as: <strong>{user.username || user.id}</strong></p>
 
           <input
             type="text"
