@@ -39,12 +39,25 @@ function App() {
     if (body) {
       options.body = JSON.stringify(body);
     }
-    const response = await fetch(path, options);
-    if (!response.ok) {
-      const errorResult = await response.json();
-      throw new Error(errorResult.error || `Server responded with status ${response.status}`);
+    
+    try {
+      const response = await fetch(path, options);
+      if (!response.ok) {
+        // Try to parse the error message from the server's JSON response
+        try {
+          const errorResult = await response.json();
+          throw new Error(errorResult.error || `Server responded with status ${response.status}`);
+        } catch (e) {
+          // If the response isn't JSON, use the status text
+          throw new Error(`Server responded with status ${response.status}: ${response.statusText}`);
+        }
+      }
+      return response.json();
+    } catch (err) {
+      // This catches network errors (e.g., failed to fetch) and the errors thrown above
+      console.error("API call failed:", err);
+      throw err; // Re-throw the error to be handled by the calling function
     }
-    return response.json();
   };
 
   // --- Core Functions ---
@@ -58,13 +71,13 @@ function App() {
     setIsLoading(true);
     setMessage(`Checking reputation for ${username}...`);
     try {
-      const result = await callBackend('GET', `/api/verify-passport?username=${username}`);
+      const result = await callBackend('GET', `/api/verify-passport?username=${encodeURIComponent(username)}`);
       setSearchedUser(username);
       setReputationScore(result.score); // This will be null if the user is new
       setView('rating');
       setMessage("");
     } catch (err) {
-      setMessage(`Error: ${err.message}`);
+      setMessage(`Error fetching reputation: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
