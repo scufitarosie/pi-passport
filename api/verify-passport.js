@@ -3,13 +3,13 @@ import { Redis } from '@upstash/redis'
 const PI_API_KEY = process.env.PI_API_KEY;
 const PI_API_URL = "https://api.minepi.com/v2";
 
+
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
 export default async function handler(req, res) {
-  // Set CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -24,10 +24,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Username is required.' });
     }
     try {
-      let score = await redis.get(username.toLowerCase());
-      if (score === null) {
-        score = 85;
-      }
+      const score = await redis.get(username.toLowerCase());
+      
       return res.status(200).json({ username, score });
     } catch (error) {
       console.error("Redis GET error:", error);
@@ -65,7 +63,14 @@ export default async function handler(req, res) {
         const { userToRate, rating } = metadata;
         if (userToRate && rating) {
           const increment = rating === 'good' ? 1 : -1;
-          await redis.incrby(userToRate.toLowerCase(), increment);
+          const key = userToRate.toLowerCase();
+
+          const currentUserScore = await redis.get(key);
+          if (currentUserScore === null) {
+            await redis.set(key, 85 + increment);
+          } else {
+            await redis.incrby(key, increment);
+          }
         }
         return res.status(200).json({ message: 'Payment completed successfully' });
 
