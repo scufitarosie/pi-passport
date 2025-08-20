@@ -93,17 +93,29 @@ function App() {
       return; 
     };
 
-    Pi.authenticate(['username', 'payments'], onIncompletePaymentFound)
-      .then(auth => {
-        addLog(`Authentication successful for user: ${auth.user.username}`);
-        setAuthResult(auth);
-        setIsLoading(false);
-      })
-      .catch(error => {
-        addLog(`Authentication error: ${error.message || 'User cancelled or an unknown error occurred.'}`);
-        setMessage("Authentication failed or was cancelled by the user.");
-        setIsLoading(false);
-      });
+    try {
+      // This try/catch block will capture any immediate errors when calling the function.
+      Pi.authenticate(['username', 'payments'], onIncompletePaymentFound)
+        .then(auth => {
+          addLog(`Authentication successful for user: ${auth.user.username}`);
+          setAuthResult(auth);
+          setIsLoading(false);
+        })
+        .catch(error => {
+          // This catches errors within the promise, like the user cancelling.
+          addLog(`Authentication promise error: ${error.message || 'User cancelled or an unknown error occurred.'}`);
+          setMessage("Authentication failed or was cancelled by the user.");
+          setIsLoading(false);
+        });
+      
+      addLog("Pi.authenticate() was called. Waiting for user action...");
+
+    } catch (err) {
+      // This catches synchronous errors if the SDK call itself fails instantly.
+      addLog(`CRITICAL ERROR during authenticate call: ${err.message}`);
+      setMessage("A critical error occurred while trying to authenticate.");
+      setIsLoading(false);
+    }
   };
 
   const checkReputation = () => {
