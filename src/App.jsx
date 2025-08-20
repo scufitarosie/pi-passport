@@ -31,7 +31,7 @@ function App() {
       if (Pi) {
         clearInterval(interval);
         try {
-          Pi.init({ version: "2.0", sandbox: true });
+          Pi.init({ version: "2.0" });
           setSdkState("ready");
           setMessage("");
           addLog("Pi SDK Initialized successfully.");
