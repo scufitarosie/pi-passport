@@ -5,34 +5,47 @@ function App() {
   // --- State Management ---
   const [authResult, setAuthResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState("Initializing Pi SDK...");
   const [targetUsername, setTargetUsername] = useState("");
   const [reputationScore, setReputationScore] = useState(null);
+  const [isPiSdkReady, setIsPiSdkReady] = useState(false); // State to track SDK readiness
 
   // --- Pi SDK Initialization ---
   useEffect(() => {
     const script = document.createElement('script');
     script.src = "https://sdk.pi-network.net/v2/pi-sdk.js";
     script.async = true;
+    
     script.onload = () => {
       try {
+        // Initialize the SDK
         window.Pi.init({ version: "2.0", sandbox: true });
+        // Set the SDK as ready
+        setIsPiSdkReady(true);
+        setMessage(""); // Clear the initializing message
       } catch (err) {
         console.error("Pi SDK initialization failed", err);
         setMessage("Error: Could not initialize Pi SDK.");
       }
     };
+    
+    script.onerror = () => {
+        setMessage("Failed to load the Pi SDK. Please check your connection and refresh.");
+    };
+
     document.body.appendChild(script);
+
+    // Cleanup script on component unmount
+    return () => {
+        document.body.removeChild(script);
+    }
   }, []);
 
   // --- Core Functions ---
 
   // 1. Authentication
-  const handleAuthenticate = async () => {
-    if (!window.Pi) {
-      setMessage("Pi SDK not loaded yet. Please wait a moment.");
-      return;
-    }
+  const handleAuthenticate = () => {
+    // The button's disabled state now prevents this from being called too early
     setIsLoading(true);
     setMessage("");
     try {
@@ -64,7 +77,7 @@ function App() {
 
   // 3. Payment Handling
   const handlePayment = () => {
-    if (!window.Pi || !authResult) {
+    if (!authResult) {
       setMessage("You must be authenticated to perform a transaction.");
       return;
     }
@@ -148,7 +161,20 @@ function App() {
         {!authResult ? (
           <div style={{ textAlign: "center" }}>
             <p>Connect your Pi account to get started.</p>
-            <button onClick={handleAuthenticate} disabled={isLoading} style={{ padding: "0.75rem 1.5rem", fontSize: "1rem", cursor: 'pointer', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px' }}>
+            <button 
+              onClick={handleAuthenticate} 
+              disabled={!isPiSdkReady || isLoading} 
+              style={{ 
+                padding: "0.75rem 1.5rem", 
+                fontSize: "1rem", 
+                cursor: (!isPiSdkReady || isLoading) ? 'not-allowed' : 'pointer', 
+                backgroundColor: (!isPiSdkReady || isLoading) ? '#cccccc' : '#007bff', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '5px',
+                transition: 'background-color 0.3s ease'
+              }}
+            >
               {isLoading ? "Loading..." : "Authenticate with Pi"}
             </button>
           </div>
@@ -167,7 +193,21 @@ function App() {
               placeholder="e.g., nicolas"
               style={{ width: '100%', padding: '0.5rem', fontSize: '1rem', boxSizing: 'border-box', marginBottom: '1rem' }}
             />
-            <button onClick={checkReputation} disabled={isLoading} style={{ width: '100%', padding: "0.75rem 1.5rem", fontSize: "1rem", cursor: 'pointer', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px' }}>
+            <button 
+              onClick={checkReputation} 
+              disabled={isLoading} 
+              style={{ 
+                width: '100%', 
+                padding: "0.75rem 1.5rem", 
+                fontSize: "1rem", 
+                cursor: isLoading ? 'not-allowed' : 'pointer', 
+                backgroundColor: isLoading ? '#cccccc' : '#28a745', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '5px',
+                transition: 'background-color 0.3s ease'
+              }}
+            >
               {isLoading ? "Processing..." : "Check Reputation (0.01 Pi)"}
             </button>
           </div>
