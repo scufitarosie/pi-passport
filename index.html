@@ -7,6 +7,7 @@
     <style>
         body { font-family: sans-serif; padding: 2rem; text-align: center; }
         button { font-size: 1.2rem; padding: 0.5rem 1rem; cursor: pointer; margin-top: 10px; }
+        button:disabled { cursor: not-allowed; background-color: #ccc; }
         #status { margin-top: 1rem; padding: 1rem; background-color: #eee; border-radius: 5px; }
     </style>
     <!-- 1. Load the Pi SDK script from the official URL -->
@@ -18,16 +19,45 @@
     <h1>Pi SDK Transaction Test</h1>
     <p>This page is designed to trigger a payment to pass the developer verification step.</p>
     
-    <button id="paymentButton">Create Test Payment</button>
+    <button id="authButton">Step 1: Authenticate for Payments</button>
     <hr style="margin: 2rem 0;">
-    <button id="authButton" disabled>Authenticate with Pi (Disabled)</button>
+    <button id="paymentButton" disabled>Step 2: Create Test Payment</button>
     
-    <div id="status">Status: Waiting for action...</div>
+    <div id="status">Status: Waiting for authentication...</div>
 
     <script>
+        const authButton = document.getElementById('authButton');
         const paymentButton = document.getElementById('paymentButton');
         const statusDiv = document.getElementById('status');
 
+        // --- Authentication Step ---
+        authButton.onclick = function() {
+            statusDiv.textContent = 'Calling Pi.authenticate() to get payment scope...';
+            authButton.disabled = true;
+
+            const scopes = ['payments'];
+            
+            function onIncompletePaymentFound(payment) {
+                statusDiv.textContent = `Incomplete payment found: ${payment.identifier}`;
+            };
+
+            try {
+                Pi.authenticate(scopes, onIncompletePaymentFound)
+                    .then(function(auth) {
+                        statusDiv.textContent = `Authentication successful. Ready to create payment.`;
+                        paymentButton.disabled = false; // Enable the payment button on success
+                    })
+                    .catch(function(error) {
+                        statusDiv.textContent = `Error: Authentication failed. ${error.message || 'Unknown error'}`;
+                        authButton.disabled = false; // Re-enable button on failure
+                    });
+            } catch (err) {
+                statusDiv.textContent = `CRITICAL ERROR during auth: ${err.message}`;
+                authButton.disabled = false;
+            }
+        };
+
+        // --- Payment Step ---
         paymentButton.onclick = function() {
             statusDiv.textContent = 'Calling Pi.createPayment()...';
             
@@ -40,8 +70,6 @@
             const callbacks = {
                 onReadyForServerApproval: function(paymentId) {
                     statusDiv.textContent = `Payment ready for server approval. Payment ID: ${paymentId}. You now need to approve this on your server.`;
-                    // In a real app, you would send this paymentId to your backend to be approved.
-                    // For the checklist, just seeing the payment dialog is often enough.
                 },
                 onReadyForServerCompletion: function(paymentId, txid) {
                     statusDiv.textContent = `Payment ready for server completion. TXID: ${txid}`;
@@ -58,7 +86,7 @@
             try {
                 Pi.createPayment(paymentData, callbacks);
             } catch (err) {
-                statusDiv.textContent = `CRITICAL ERROR: ${err.message}`;
+                statusDiv.textContent = `CRITICAL ERROR during payment: ${err.message}`;
                 console.error(err);
             }
         };
