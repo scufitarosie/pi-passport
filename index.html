@@ -1,105 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pi SDK Transaction Test</title>
-    <style>
-        body { font-family: sans-serif; padding: 2rem; text-align: center; }
-        button { font-size: 1.2rem; padding: 0.5rem 1rem; cursor: pointer; margin-top: 10px; }
-        button:disabled { cursor: not-allowed; background-color: #ccc; }
-        #status { margin-top: 1rem; padding: 1rem; background-color: #eee; border-radius: 5px; }
-    </style>
-    <!-- 1. Load the Pi SDK script from the official URL -->
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pi Passport</title>
+    <!-- 1. Load the Pi SDK script -->
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <!-- 2. Initialize the SDK -->
     <script>Pi.init({ version: "2.0", sandbox: true })</script>
-</head>
-<body>
-    <h1>Pi SDK Transaction Test</h1>
-    <p>This page is designed to trigger a payment to pass the developer verification step.</p>
-    
-    <button id="authButton">Step 1: Authenticate for Payments</button>
-    <hr style="margin: 2rem 0;">
-    <button id="paymentButton" disabled>Step 2: Create Test Payment</button>
-    
-    <div id="status">Status: Waiting for authentication...</div>
-
-    <script>
-        const authButton = document.getElementById('authButton');
-        const paymentButton = document.getElementById('paymentButton');
-        const statusDiv = document.getElementById('status');
-
-        // --- Authentication Step ---
-        authButton.onclick = function() {
-            statusDiv.textContent = 'Calling Pi.authenticate() to get payment scope...';
-            authButton.disabled = true;
-
-            const scopes = ['payments'];
-            
-            function onIncompletePaymentFound(payment) {
-                statusDiv.textContent = `Incomplete payment found: ${payment.identifier}`;
-            };
-
-            try {
-                // Create a promise for the authentication call
-                const authPromise = Pi.authenticate(scopes, onIncompletePaymentFound);
-
-                // Create a timeout promise that rejects after 5 seconds
-                const timeoutPromise = new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error('Authentication timed out after 5 seconds.')), 5000);
-                });
-
-                // Race the two promises. Whichever finishes first wins.
-                Promise.race([authPromise, timeoutPromise])
-                    .then(function(auth) {
-                        statusDiv.textContent = `Authentication successful. Ready to create payment.`;
-                        paymentButton.disabled = false; // Enable the payment button on success
-                    })
-                    .catch(function(error) {
-                        statusDiv.textContent = `Error: Authentication failed. ${error.message || 'Unknown error'}`;
-                        authButton.disabled = false; // Re-enable button on failure
-                    });
-
-            } catch (err) {
-                statusDiv.textContent = `CRITICAL ERROR during auth: ${err.message}`;
-                authButton.disabled = false;
-            }
-        };
-
-        // --- Payment Step ---
-        paymentButton.onclick = function() {
-            statusDiv.textContent = 'Calling Pi.createPayment()...';
-            
-            const paymentData = {
-                amount: 0.01,
-                memo: 'Verification Transaction',
-                metadata: { verification: true },
-            };
-
-            const callbacks = {
-                onReadyForServerApproval: function(paymentId) {
-                    statusDiv.textContent = `Payment ready for server approval. Payment ID: ${paymentId}. You now need to approve this on your server.`;
-                },
-                onReadyForServerCompletion: function(paymentId, txid) {
-                    statusDiv.textContent = `Payment ready for server completion. TXID: ${txid}`;
-                },
-                onCancel: function(paymentId) {
-                    statusDiv.textContent = `Payment was cancelled. Payment ID: ${paymentId}`;
-                },
-                onError: function(error, payment) {
-                    statusDiv.textContent = `Error during payment: ${error.code || error.message}`;
-                    console.error(error);
-                }
-            };
-
-            try {
-                Pi.createPayment(paymentData, callbacks);
-            } catch (err) {
-                statusDiv.textContent = `CRITICAL ERROR during payment: ${err.message}`;
-                console.error(err);
-            }
-        };
-    </script>
-</body>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
