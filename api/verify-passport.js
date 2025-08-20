@@ -16,67 +16,55 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  console.log(`[LOG] API function invoked with method: ${req.method}`);
-  console.log('[LOG] Received body:', req.body);
-
   if (req.method !== 'POST') {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
   if (!PI_API_KEY) {
-    console.error("[ERROR] CRITICAL: PI_API_KEY environment variable is not set.");
     return res.status(500).json({ error: "Server configuration error: API key is missing." });
   }
 
   const { action, paymentId, txid, targetUsername } = req.body;
 
-  const callPiApi = (endpoint, body) => {
-    return fetch(`${PI_API_URL}${endpoint}`, {
+  const callPiApi = async (endpoint, body) => {
+    const resp = await fetch(`${PI_API_URL}${endpoint}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Key ${PI_API_KEY}`,
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(body || {}),
     });
+    return resp;
   };
 
   try {
-    let piResponse;
-    
     if (action === 'approve') {
       if (!paymentId) return res.status(400).json({ error: "Payment ID is required for approval." });
-      console.log(`[LOG] Calling Pi API to approve payment ${paymentId}...`);
-      piResponse = await callPiApi(`/payments/${paymentId}/approve`, {});
+
+      const piResponse = await callPiApi(`/payments/${paymentId}/approve`);
+      if (!piResponse.ok) {
+        return res.status(piResponse.status).json({ error: "Pi API approve failed." });
+      }
+      return res.status(200).json({ success: true, action: 'approve' });
 
     } else if (action === 'complete') {
       if (!paymentId || !txid) return res.status(400).json({ error: "Payment ID and TXID are required." });
-      console.log(`[LOG] Calling Pi API to complete payment ${paymentId}...`);
-      piResponse = await callPiApi(`/payments/${paymentId}/complete`, { txid });
+
+      const piResponse = await callPiApi(`/payments/${paymentId}/complete`, { txid });
+      if (!piResponse.ok) {
+        return res.status(piResponse.status).json({ error: "Pi API complete failed." });
+      }
+
+      const score = reputationStore[targetUsername?.toLowerCase()] || Math.floor(Math.random() * 30) + 60;
+      return res.status(200).json({ success: true, action: 'complete', reputationScore: score });
 
     } else {
-      console.warn(`[WARN] Invalid action received: ${action}`);
       return res.status(400).json({ error: 'Invalid action specified.' });
     }
 
-    const responseData = await piResponse.json();
-
-    if (!piResponse.ok) {
-      console.error(`[ERROR] Pi API Error on '${action}' (${piResponse.status}):`, responseData);
-      return res.status(piResponse.status).json({ error: `Pi API call failed for '${action}'.`, details: responseData });
-    }
-
-    console.log(`[LOG] Pi API call for '${action}' successful.`);
-    
-    if (action === 'complete') {
-      const score = reputationStore[targetUsername.toLowerCase()] || Math.floor(Math.random() * 30) + 60;
-      responseData.reputationScore = score;
-    }
-
-    return res.status(200).json(responseData);
-
   } catch (error) {
     console.error("[ERROR] Internal Server Error:", error);
-    return res.status(500).json({ error: 'An unexpected server error occurred.', detail: error.message });
+    return res.status(500).json({ error: 'Unexpected server error.', detail: error.message });
   }
 }
