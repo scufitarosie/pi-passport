@@ -5,7 +5,7 @@ function App() {
   const [message, setMessage] = useState("");
   const [sdkState, setSdkState] = useState("loading");
   
-  const [view, setView] = useState('search'); // 'search' or 'rating'
+  const [view, setView] = useState('search'); 
   const [searchedUser, setSearchedUser] = useState('');
   const [reputationScore, setReputationScore] = useState(null);
 
